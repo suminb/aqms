@@ -1,0 +1,67 @@
+#                                    __   __  __
+#                                    \ \ / / / /
+#                                     \ V / / /
+#                                      \_/  \/
+#
+#                                    V E C T O R
+#                                   Configuration
+#
+# ------------------------------------------------------------------------------
+# Website: https://vector.dev
+# Docs: https://vector.dev/docs
+# Chat: https://chat.vector.dev
+# ------------------------------------------------------------------------------
+
+# Change this to use a non-default directory for Vector data storage:
+# data_dir = "/var/lib/vector"
+
+# Random Syslog-formatted logs
+[sources.aqms]
+type = "http"
+address = "0.0.0.0:8077"
+path = "/report"
+encoding = "json"
+
+# Parse Syslog logs
+# See the Vector Remap Language reference for more info: https://vrl.dev
+[transforms.aqms_remap]
+type = "remap"
+inputs = ["aqms"]
+source = '''
+# .minute, _ = format_timestamp(.timestamp, "%Y-%m-%d %H:%M")
+.timestamp, _ = format_timestamp(.timestamp, "%Y-%m-%d %H:%M:%S.%9f")
+'''
+
+# Print parsed logs to stdout
+[sinks.print]
+type = "console"
+inputs = ["aqms_remap"]
+encoding.codec = "json"
+
+[sinks.json_file]
+type = "file"
+inputs = [ "aqms_remap" ]
+compression = "gzip"
+path = "/home/sumin/logs/aqms_remap-%Y-%m.log"
+
+  [sinks.json_file.encoding]
+  codec = "ndjson"
+
+[sinks.aws_s3]
+type = "aws_s3"
+inputs = [ "aqms_remap" ]
+bucket = "aqms.shortbread.io"
+key_prefix = "logs/date=%Y-%m/"
+compression = "gzip"
+region = "ap-northeast-2"
+buffer.max_events = 1000
+
+  [sinks.aws_s3.encoding]
+    codec = "ndjson"
+
+# Vector's GraphQL API (disabled by default)
+# Uncomment to try it out with the `vector top` command or
+# in your browser at http://localhost:8686
+#[api]
+#enabled = true
+#address = "127.0.0.1:8686"
